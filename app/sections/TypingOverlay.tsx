@@ -3,7 +3,7 @@
 import React from 'react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { Pause, Play, Square } from 'lucide-react'
+import { Pause, Play, Square, Monitor, MousePointer } from 'lucide-react'
 
 interface TypingOverlayProps {
   isVisible: boolean
@@ -36,18 +36,32 @@ export default function TypingOverlay({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center pb-8 pointer-events-none">
-      <div className="bg-card border-2 border-primary shadow-lg shadow-primary/10 p-5 w-[480px] max-w-[95vw] pointer-events-auto">
+      <div className="bg-card border-2 border-primary shadow-lg shadow-primary/10 p-5 w-[520px] max-w-[95vw] pointer-events-auto">
         {countdown !== null ? (
-          <div className="text-center space-y-3">
-            <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-              Starting in
-            </p>
+          <div className="text-center space-y-4">
+            <div className="flex items-center justify-center gap-2 text-accent">
+              <MousePointer className="h-5 w-5" />
+              <p className="text-sm font-mono font-semibold uppercase tracking-wider">
+                Switch to Notepad++ Now
+              </p>
+            </div>
             <p className="text-5xl font-mono font-bold text-primary tabular-nums">
               {countdown}
             </p>
-            <p className="text-xs font-mono text-muted-foreground">
-              Get ready...
-            </p>
+            <div className="space-y-1">
+              <p className="text-xs font-mono text-muted-foreground">
+                Click inside Notepad++ where you want typing to begin
+              </p>
+              <p className="text-xs font-mono text-muted-foreground">
+                Typing starts automatically when countdown reaches 0
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-1">
+              <div className="flex items-center gap-1.5 text-xs font-mono text-primary">
+                <Monitor className="h-3.5 w-3.5" />
+                <span>Target: Active Window</span>
+              </div>
+            </div>
             <Button
               variant="outline"
               size="sm"
@@ -64,13 +78,21 @@ export default function TypingOverlay({
               <div className="flex items-center gap-2">
                 <span className={`w-2 h-2 ${isPaused ? 'bg-primary' : 'bg-accent animate-pulse'}`} />
                 <span className="text-xs font-mono uppercase tracking-wider text-foreground">
-                  {isPaused ? 'Paused' : 'Typing...'}
+                  {isPaused ? 'Paused' : 'Typing into active window...'}
                 </span>
               </div>
               <span className="text-xs font-mono text-muted-foreground tabular-nums">
                 {formatTime(elapsedTime)}
               </span>
             </div>
+
+            {isPaused && (
+              <div className="px-3 py-2 border border-primary/30 bg-primary/5">
+                <p className="text-xs font-mono text-primary">
+                  Typing paused. Click Resume when your cursor is in the target window.
+                </p>
+              </div>
+            )}
 
             <Progress value={progress} className="h-2 bg-secondary" />
 

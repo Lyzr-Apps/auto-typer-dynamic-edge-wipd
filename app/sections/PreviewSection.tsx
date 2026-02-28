@@ -1,11 +1,12 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
-import { Eye, AlertCircle, CheckCircle, Info } from 'lucide-react'
+import { Eye, AlertCircle, CheckCircle, Info, Copy, Check } from 'lucide-react'
 
 interface PreviewSectionProps {
   extractedText: string
@@ -17,6 +18,7 @@ interface PreviewSectionProps {
   sourceType: string | null
   typedText: string
   isTyping: boolean
+  wpm: number
 }
 
 export default function PreviewSection({
@@ -29,7 +31,28 @@ export default function PreviewSection({
   sourceType,
   typedText,
   isTyping,
+  wpm,
 }: PreviewSectionProps) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(extractedText)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Fallback for older browsers
+      const ta = document.createElement('textarea')
+      ta.value = extractedText
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
   const getConfidenceBadge = () => {
     if (!confidence) return null
     const lower = confidence.toLowerCase()
@@ -57,6 +80,8 @@ export default function PreviewSection({
     )
   }
 
+  const estimatedMinutes = wpm > 0 ? Math.ceil(wordCount / wpm) : 0
+
   return (
     <Card className="border border-border bg-card">
       <CardHeader className="pb-3">
@@ -79,7 +104,7 @@ export default function PreviewSection({
         <Textarea
           value={extractedText}
           onChange={(e) => onTextChange(e.target.value)}
-          placeholder="Extracted text will appear here. You can also edit it manually."
+          placeholder="Extracted text will appear here. You can also type or paste text manually."
           className="min-h-[180px] font-mono text-sm bg-background border-border resize-none focus:ring-1 focus:ring-primary"
         />
 
@@ -92,11 +117,33 @@ export default function PreviewSection({
               Chars: <span className="text-foreground">{charCount}</span>
             </span>
           </div>
-          {extractedText.length > 0 && (
-            <span className="text-xs font-mono text-muted-foreground">
-              ~{Math.ceil(wordCount / 40)} min @ 40 WPM
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            {extractedText.length > 0 && (
+              <span className="text-xs font-mono text-muted-foreground">
+                ~{estimatedMinutes} min @ {wpm} WPM
+              </span>
+            )}
+            {extractedText.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopy}
+                className="h-7 font-mono text-xs border-border hover:bg-secondary gap-1.5"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-3 w-3 text-accent" />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3 w-3" />
+                    Copy All
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
 
         {notes && (
@@ -111,13 +158,17 @@ export default function PreviewSection({
           </>
         )}
 
+        {/* Typing simulation preview - shows what is being typed in real-time */}
         {isTyping && (
           <>
             <Separator className="bg-border" />
             <div className="space-y-2">
               <p className="text-xs font-mono uppercase tracking-wider text-primary flex items-center gap-2">
                 <span className="w-2 h-2 bg-accent animate-pulse" />
-                Typing Output
+                Live Typing Preview
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Characters are being typed into your target window. Preview below:
               </p>
               <div className="min-h-[120px] max-h-[200px] overflow-y-auto p-3 bg-background border border-border font-mono text-sm whitespace-pre-wrap break-words">
                 {typedText}
