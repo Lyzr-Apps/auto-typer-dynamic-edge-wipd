@@ -1,0 +1,15 @@
+{
+  "agent_name": "Content Extractor Agent",
+  "agent_id": "69a2d88421bc5fff54108a9b",
+  "agent_type": "json",
+  "accessor": "result",
+  "has_module_outputs": false,
+  "schema": {
+    "extracted_text": "string",
+    "source_type": "string",
+    "confidence": "string",
+    "word_count": "number",
+    "character_count": "number",
+    "notes": "string"
+  }
+}

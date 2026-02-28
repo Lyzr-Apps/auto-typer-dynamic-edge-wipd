@@ -1,0 +1,24 @@
+{
+  "agent_name": "Content Extractor Agent",
+  "agent_id": "69a2d88421bc5fff54108a9b",
+  "description": "Processes user-provided text or images. For images, extracts text via vision/OCR capabilities. Cleans, formats, and prepares the final text output ready for typing simulation. Handles multi-line content, preserves formatting, and ensures accuracy.",
+  "agent_type": "json",
+  "accessor": "result",
+  "auto_generated": true,
+  "response_schema": {
+    "extracted_text": "string",
+    "source_type": "string",
+    "confidence": "string",
+    "word_count": "number",
+    "character_count": "number",
+    "notes": "string"
+  },
+  "example_response": {
+    "extracted_text": "The cleaned and formatted extracted text content",
+    "source_type": "Whether the input was text or image",
+    "confidence": "Confidence level of extraction: high, medium, or low",
+    "word_count": 0,
+    "character_count": 0,
+    "notes": "Any notes about the extraction, such as uncertain portions or formatting decisions"
+  }
+}
