@@ -7,15 +7,14 @@ import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
-import { Keyboard, Cpu, CircleDot, Info, ArrowRight, MousePointer, Monitor, FileText } from 'lucide-react'
+import { Keyboard, Cpu, CircleDot, Info, ArrowRight, FileText, Monitor } from 'lucide-react'
 import InputSection from './sections/InputSection'
 import PreviewSection from './sections/PreviewSection'
 import SettingsSection from './sections/SettingsSection'
-import TypingOverlay from './sections/TypingOverlay'
+import TypingEditor from './sections/TypingEditor'
 
 const AGENT_ID = '69a2d88421bc5fff54108a9b'
 
-// Sample data for toggle
 const SAMPLE_DATA = {
   extractedText: `function fibonacci(n) {\n  if (n <= 1) return n;\n  return fibonacci(n - 1) + fibonacci(n - 2);\n}\n\nfor (let i = 0; i < 10; i++) {\n  console.log(\`fib(\${i}) = \${fibonacci(i)}\`);\n}\n\n// Output:\n// fib(0) = 0\n// fib(1) = 1\n// fib(2) = 1\n// fib(3) = 2\n// fib(4) = 3`,
   confidence: 'high',
@@ -85,7 +84,7 @@ export default function Page() {
   const [currentWpm, setCurrentWpm] = useState(0)
   const [elapsedTime, setElapsedTime] = useState(0)
   const [countdown, setCountdown] = useState<number | null>(null)
-  const [showOverlay, setShowOverlay] = useState(false)
+  const [showEditor, setShowEditor] = useState(false)
   const [typingDone, setTypingDone] = useState(false)
 
   // Sample data toggle
@@ -103,6 +102,12 @@ export default function Page() {
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startTimeRef = useRef(0)
   const charsTypedRef = useRef(0)
+  const extractedTextRef = useRef('')
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    extractedTextRef.current = extractedText
+  }, [extractedText])
 
   // Update word/char count when text changes
   const handleTextChange = useCallback((text: string) => {
@@ -185,10 +190,7 @@ export default function Page() {
     }
   }, [])
 
-  // Typing simulation - types character by character
-  // In a web browser, we cannot inject keystrokes into external OS windows like Notepad++.
-  // This simulation types into the in-browser preview as a demonstration.
-  // For actual keystroke injection into Notepad++, a desktop agent (Python/AutoHotkey) would be needed.
+  // Typing simulation engine
   const typeCharacter = useCallback(() => {
     if (isStoppedRef.current) return
 
@@ -197,13 +199,11 @@ export default function Page() {
       return
     }
 
-    const text = extractedText
+    const text = extractedTextRef.current
     const idx = typingIndexRef.current
 
     if (idx >= text.length) {
-      // Done
       setIsTyping(false)
-      setShowOverlay(false)
       setProgress(100)
       setTypingDone(true)
       if (timerRef.current) clearInterval(timerRef.current)
@@ -212,7 +212,6 @@ export default function Page() {
 
     const char = text[idx]
     const baseDelay = 60000 / (wpm * 5)
-
     let delay = baseDelay
 
     // Speed variation
@@ -221,7 +220,7 @@ export default function Page() {
       delay = baseDelay * variation
     }
 
-    // Micro-pauses at punctuation/spaces
+    // Micro-pauses
     if (microPauses) {
       const pauseMultiplier = pauseFrequency === 'high' ? 1.5 : pauseFrequency === 'medium' ? 1.0 : 0.5
       if (char === ' ') {
@@ -234,16 +233,14 @@ export default function Page() {
     }
 
     // Typo simulation
-    if (typoSimulation && Math.random() < 0.03 && char.match(/[a-zA-Z]/)) {
+    if (typoSimulation && Math.random() < 0.03 && /[a-zA-Z]/.test(char)) {
       const wrongChar = String.fromCharCode(char.charCodeAt(0) + (Math.random() > 0.5 ? 1 : -1))
       setTypedText(prev => prev + wrongChar)
       typingTimeoutRef.current = setTimeout(() => {
         if (isStoppedRef.current) return
-        // Backspace
         setTypedText(prev => prev.slice(0, -1))
         typingTimeoutRef.current = setTimeout(() => {
           if (isStoppedRef.current) return
-          // Type correct character
           setTypedText(prev => prev + char)
           typingIndexRef.current = idx + 1
           charsTypedRef.current += 1
@@ -260,12 +257,12 @@ export default function Page() {
     charsTypedRef.current += 1
     setProgress(((idx + 1) / text.length) * 100)
     typingTimeoutRef.current = setTimeout(typeCharacter, delay)
-  }, [extractedText, wpm, speedVariation, microPauses, typoSimulation, pauseFrequency])
+  }, [wpm, speedVariation, microPauses, typoSimulation, pauseFrequency])
 
   const startTyping = useCallback(() => {
     if (!extractedText.trim()) return
 
-    setShowOverlay(true)
+    setShowEditor(true)
     setCountdown(startDelay)
     setTypedText('')
     setProgress(0)
@@ -287,7 +284,6 @@ export default function Page() {
         setIsTyping(true)
         startTimeRef.current = Date.now()
 
-        // Elapsed time timer
         timerRef.current = setInterval(() => {
           if (!isPausedRef.current) {
             const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000)
@@ -314,13 +310,7 @@ export default function Page() {
     })
   }, [])
 
-  const handleStop = useCallback(() => {
-    isStoppedRef.current = true
-    setIsTyping(false)
-    setShowOverlay(false)
-    setCountdown(null)
-    setIsPaused(false)
-    isPausedRef.current = false
+  const clearAllTimers = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current)
       timerRef.current = null
@@ -335,8 +325,18 @@ export default function Page() {
     }
   }, [])
 
+  const handleCloseEditor = useCallback(() => {
+    isStoppedRef.current = true
+    setIsTyping(false)
+    setShowEditor(false)
+    setCountdown(null)
+    setIsPaused(false)
+    isPausedRef.current = false
+    clearAllTimers()
+  }, [clearAllTimers])
+
   const handleReset = useCallback(() => {
-    handleStop()
+    handleCloseEditor()
     setTypedText('')
     setProgress(0)
     setElapsedTime(0)
@@ -348,16 +348,14 @@ export default function Page() {
     setTypoSimulation(false)
     setPauseFrequency('medium')
     setStartDelay(5)
-  }, [handleStop])
+  }, [handleCloseEditor])
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
+      clearAllTimers()
     }
-  }, [])
+  }, [clearAllTimers])
 
   return (
     <ErrorBoundary>
@@ -374,7 +372,7 @@ export default function Page() {
                   AutoTyper Pro
                 </h1>
                 <p className="text-xs font-mono text-muted-foreground">
-                  Human-like typing simulation for Notepad++ and external apps
+                  Human-like typing simulation
                 </p>
               </div>
             </div>
@@ -411,21 +409,16 @@ export default function Page() {
                   <ArrowRight className="h-3 w-3 text-muted-foreground/50" />
                   <span className="flex items-center gap-1.5">
                     <Keyboard className="h-3 w-3 text-primary" />
-                    Configure typing settings
-                  </span>
-                  <ArrowRight className="h-3 w-3 text-muted-foreground/50" />
-                  <span className="flex items-center gap-1.5">
-                    <MousePointer className="h-3 w-3 text-accent" />
-                    Click into Notepad++
+                    Configure speed & behavior
                   </span>
                   <ArrowRight className="h-3 w-3 text-muted-foreground/50" />
                   <span className="flex items-center gap-1.5">
                     <Monitor className="h-3 w-3 text-accent" />
-                    Auto-types with human-like behavior
+                    Watch it type in the built-in editor
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground/80">
-                  Note: Browser-based typing simulation previews in-app. For actual keystroke injection into Notepad++, a local desktop companion (e.g. AutoHotkey or Python pyautogui script) is required. Use "Copy All" to quickly transfer content.
+                  Click "Start Typing" to open a full-screen editor. Text appears character by character with human-like speed, pauses, and optional typo simulation. Copy the output when done.
                 </p>
               </div>
             </div>
@@ -433,11 +426,11 @@ export default function Page() {
         </div>
 
         {/* Done notification */}
-        {typingDone && (
+        {typingDone && !showEditor && (
           <div className="border-b border-accent bg-accent/10">
             <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
               <p className="text-sm font-mono text-accent font-semibold">
-                Typing simulation complete! {charCount} characters typed at ~{currentWpm} WPM.
+                Typing complete -- {typedText.length} characters at ~{currentWpm} WPM
               </p>
               <button
                 onClick={() => setTypingDone(false)}
@@ -468,8 +461,8 @@ export default function Page() {
                 confidence={confidence}
                 notes={notes}
                 sourceType={sourceType}
-                typedText={typedText}
-                isTyping={isTyping}
+                typedText=""
+                isTyping={false}
                 wpm={wpm}
               />
             </div>
@@ -490,47 +483,10 @@ export default function Page() {
                 startDelay={startDelay}
                 onStartDelayChange={setStartDelay}
                 canStart={extractedText.trim().length > 0}
-                isTyping={isTyping || showOverlay}
+                isTyping={isTyping || showEditor}
                 onStart={startTyping}
                 onReset={handleReset}
               />
-
-              {/* Target Application Info */}
-              <Card className="border border-border bg-card">
-                <CardContent className="p-4 space-y-3">
-                  <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <Monitor className="h-3.5 w-3.5 text-primary" />
-                    Target Application
-                  </p>
-                  <Separator className="bg-border" />
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono text-foreground">Notepad++ / Active Window</span>
-                      <Badge variant="outline" className="font-mono text-xs border-accent text-accent">
-                        External
-                      </Badge>
-                    </div>
-                    <div className="space-y-1.5 text-xs text-muted-foreground">
-                      <p className="flex items-center gap-1.5">
-                        <span className="w-1 h-1 bg-primary flex-shrink-0" />
-                        Click "Start Typing" to begin countdown
-                      </p>
-                      <p className="flex items-center gap-1.5">
-                        <span className="w-1 h-1 bg-primary flex-shrink-0" />
-                        Switch to Notepad++ during countdown
-                      </p>
-                      <p className="flex items-center gap-1.5">
-                        <span className="w-1 h-1 bg-primary flex-shrink-0" />
-                        Place cursor where typing should start
-                      </p>
-                      <p className="flex items-center gap-1.5">
-                        <span className="w-1 h-1 bg-accent flex-shrink-0" />
-                        Typing begins automatically after countdown
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
 
               {/* Agent Info */}
               <Card className="border border-border bg-card">
@@ -558,16 +514,18 @@ export default function Page() {
           </div>
         </main>
 
-        {/* Typing Overlay */}
-        <TypingOverlay
-          isVisible={showOverlay}
+        {/* Full-screen Notepad++ style typing editor */}
+        <TypingEditor
+          typedText={typedText}
+          isTyping={isTyping}
+          isPaused={isPaused}
           progress={progress}
           currentWpm={currentWpm}
           elapsedTime={elapsedTime}
-          isPaused={isPaused}
           countdown={countdown}
+          isVisible={showEditor}
           onPauseResume={handlePauseResume}
-          onStop={handleStop}
+          onStop={handleCloseEditor}
         />
       </div>
     </ErrorBoundary>
